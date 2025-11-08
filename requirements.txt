@@ -1,0 +1,5 @@
+Flask==2.3.3
+pandas==2.1.1
+python-dotenv==1.0.1
+vanna[google,postgres]==2.0.0
+psycopg2-binary==2.9.9
