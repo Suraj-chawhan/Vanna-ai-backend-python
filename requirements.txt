@@ -1,10 +1,10 @@
 flask
-langchain==0.2.12
-langchain-core==0.2.24
-langchain-community==0.2.10
-langchain-groq
-pandas
-sqlalchemy
+langchain==0.2.11
+langchain-core==0.2.20
+langchain-community==0.2.8
+langchain-groq==0.1.4
+sqlalchemy>=2.0.29
 psycopg2-binary
+pandas
 python-dotenv
 gunicorn
