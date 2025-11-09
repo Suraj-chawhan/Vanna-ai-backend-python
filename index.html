@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DataChat AI — Analytics Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 text-white min-h-screen">
+  <nav class="bg-blue-950 bg-opacity-30 backdrop-blur-md p-4 text-center font-bold text-xl shadow-md">
+    💬 DataChat AI — SQL Analytics
+  </nav>
+
+  <main class="p-6 flex flex-col items-center space-y-10">
+    <section class="bg-white/10 p-6 rounded-2xl shadow-lg w-full max-w-3xl">
+      <h2 class="text-lg mb-3 font-semibold text-blue-200">📊 Top Vendors by Total Invoice</h2>
+      <canvas id="chart"></canvas>
+    </section>
+
+    <section class="bg-white/10 p-6 rounded-2xl shadow-lg w-full max-w-3xl">
+      <h2 class="text-lg mb-3 font-semibold text-blue-200">💬 Chat with Your Database</h2>
+      <div id="chat-box" class="h-64 overflow-y-auto bg-white/5 p-3 rounded-lg mb-3 text-sm"></div>
+      <div class="flex">
+        <input id="input" type="text" placeholder="Ask a question..."
+          class="flex-grow p-3 rounded-l-xl bg-white/20 border border-white/30 text-white placeholder-blue-200 outline-none">
+        <button onclick="ask()" class="px-4 bg-blue-600 hover:bg-blue-700 rounded-r-xl font-semibold">Send</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="mt-10 text-center text-blue-200 text-sm">
+    © 2025 DataChat AI | Powered by LangChain + Groq
+  </footer>
+
+  <script>
+    async function loadStats() {
+      const res = await fetch("/stats");
+      const data = await res.json();
+      const ctx = document.getElementById("chart");
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: data.labels,
+          datasets: [{
+            label: "Invoice Total",
+            data: data.values,
+            backgroundColor: "rgba(59,130,246,0.7)"
+          }]
+        }
+      });
+    }
+
+    async function ask() {
+      const q = document.getElementById("input").value.trim();
+      if (!q) return;
+      const chat = document.getElementById("chat-box");
+      chat.innerHTML += `<div><b>You:</b> ${q}</div>`;
+      document.getElementById("input").value = "";
+
+      const res = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q })
+      });
+      const data = await res.json();
+      if (data.error) {
+        chat.innerHTML += `<div class='text-red-400'>❌ ${data.error}</div>`;
+      } else {
+        chat.innerHTML += `<div><b>AI SQL:</b> ${data.generated_sql}</div>`;
+        chat.innerHTML += `<div class='text-green-300'><b>Result:</b> ${JSON.stringify(data.result)}</div>`;
+      }
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    loadStats();
+  </script>
+</body>
+</html>
