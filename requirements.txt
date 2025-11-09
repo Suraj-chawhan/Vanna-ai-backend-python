@@ -1,7 +1,8 @@
 flask
-langchain
+langchain==0.2.12
+langchain-core==0.2.24
+langchain-community==0.2.10
 langchain-groq
-langchain-community
 pandas
 sqlalchemy
 psycopg2-binary
