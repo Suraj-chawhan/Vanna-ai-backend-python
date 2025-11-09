@@ -18,7 +18,7 @@ POSTGRES_URL = os.getenv("POSTGRES_URL")
 PORT = int(os.getenv("PORT", 5000))
 
 if not GEMINI_API_KEY or not POSTGRES_URL:
-    raise ValueError("Missing GEMINI_API_KEY or POSTGRES_URL in .env file!")
+    raise ValueError("Missing GEMINI_API_KEY or POSTGRES_URL in .env")
 
 # -------------------------------
 # 2️⃣ Initialize Flask
@@ -26,13 +26,12 @@ if not GEMINI_API_KEY or not POSTGRES_URL:
 app = Flask(__name__)
 
 # -------------------------------
-# 3️⃣ Initialize Gemini LLM
+# 3️⃣ Gemini LLM
 # -------------------------------
 llm = GeminiLlmService(
     model="gemini-1.5-flash",
     api_key=GEMINI_API_KEY
 )
-print("✅ Gemini LLM initialized")
 
 # -------------------------------
 # 4️⃣ PostgreSQL Tool
@@ -40,7 +39,6 @@ print("✅ Gemini LLM initialized")
 db_tool = RunSqlTool(
     sql_runner=PostgresRunner(connection_string=POSTGRES_URL)
 )
-print("✅ PostgreSQL tool ready")
 
 # -------------------------------
 # 5️⃣ Agent Memory
@@ -52,7 +50,6 @@ agent_memory = DemoAgentMemory(max_items=1000)
 # -------------------------------
 class SimpleUserResolver(UserResolver):
     async def resolve_user(self, request_context: RequestContext) -> User:
-        # For demo: assign all users to 'admin' group
         user_email = request_context.get_cookie("vanna_email") or "guest@example.com"
         return User(id=user_email, email=user_email, group_memberships=["admin"])
 
@@ -75,28 +72,30 @@ agent = Agent(
 )
 
 # -------------------------------
-# 9️⃣ Flask route to ask question
+# 9️⃣ Flask route to ask questions
 # -------------------------------
 @app.route("/ask", methods=["POST"])
 def ask_question():
+    from asyncio import run
+
     data = request.json
     question = data.get("question")
     if not question:
         return jsonify({"error": "No question provided"}), 400
 
     try:
-        # Use agent.chat() instead of deprecated query() or generate_sql()
-        response = agent.chat(question)
+        # Use agent.chat() in a synchronous Flask context
+        response = run(agent.chat(question))
         return jsonify({
             "question": question,
             "answer": response.output_text,
-            "data": getattr(response, "output_data", None)  # Optional DB results
+            "data": getattr(response, "output_data", None)
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 # -------------------------------
-# 10️⃣ Run Flask server
+# 10️⃣ Run Flask
 # -------------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT, debug=True)
