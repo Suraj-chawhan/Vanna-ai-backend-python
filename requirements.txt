@@ -1,6 +1,7 @@
-Flask
-python-dotenv
+flask
+langchain
+langchain-groq
+langchain-community
 pandas
+sqlalchemy
 psycopg2-binary
-vanna[google,postgres] @ git+https://github.com/vanna-ai/vanna.git@v2
-gunicorn
