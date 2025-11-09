@@ -1,101 +1,97 @@
+import re
+import json
 import os
-from flask import Flask, request, jsonify
-from dotenv import load_dotenv
-from vanna import Agent
-from vanna.core.registry import ToolRegistry
-from vanna.core.user import UserResolver, User, RequestContext
-from vanna.integrations.google import GeminiLlmService
-from vanna.integrations.postgres import PostgresRunner
-from vanna.tools import RunSqlTool
-from vanna.tools.agent_memory import DemoAgentMemory
+import pandas as pd
+from flask import Flask, request, jsonify, send_from_directory
+from langchain_community.utilities import SQLDatabase
+from langchain_groq import ChatGroq
+from langchain.chains import create_sql_query_chain
+from langchain_community.tools.sql_database.tool import QuerySQLDataBaseTool
 
-# -------------------------------
-# 1️⃣ Load environment variables
-# -------------------------------
-load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-POSTGRES_URL = os.getenv("POSTGRES_URL")
-PORT = int(os.getenv("PORT", 5000))
-
-if not GEMINI_API_KEY or not POSTGRES_URL:
-    raise ValueError("Missing GEMINI_API_KEY or POSTGRES_URL in .env")
-
-# -------------------------------
-# 2️⃣ Initialize Flask
-# -------------------------------
 app = Flask(__name__)
 
-# -------------------------------
-# 3️⃣ Gemini LLM
-# -------------------------------
-llm = GeminiLlmService(
-    model="gemini-1.5-flash",
-    api_key=GEMINI_API_KEY
-)
+# -------------------------
+# Database + LLM Config
+# -------------------------
+DB_URL = os.getenv("POSTGRES_URL")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# -------------------------------
-# 4️⃣ PostgreSQL Tool
-# -------------------------------
-db_tool = RunSqlTool(
-    sql_runner=PostgresRunner(connection_string=POSTGRES_URL)
-)
+db = SQLDatabase.from_uri(DB_URL)
+llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=GROQ_API_KEY, temperature=0.1)
+generate_query = create_sql_query_chain(llm, db)
+run_query = QuerySQLDataBaseTool(db=db)
 
-# -------------------------------
-# 5️⃣ Agent Memory
-# -------------------------------
-agent_memory = DemoAgentMemory(max_items=1000)
 
-# -------------------------------
-# 6️⃣ User Resolver
-# -------------------------------
-class SimpleUserResolver(UserResolver):
-    async def resolve_user(self, request_context: RequestContext) -> User:
-        user_email = request_context.get_cookie("vanna_email") or "guest@example.com"
-        return User(id=user_email, email=user_email, group_memberships=["admin"])
+def clean_sql_output(raw_text: str) -> str:
+    """Extract clean SQL text from LLM output"""
+    match = re.search(r"```sql(.*?)```", raw_text, re.DOTALL)
+    if match:
+        sql = match.group(1)
+    else:
+        sql = raw_text
+    sql = re.sub(r'(?i)question:.*?\n', '', sql)
+    sql = re.sub(r'(?i)sqlquery:', '', sql)
+    return sql.strip()
 
-user_resolver = SimpleUserResolver()
+# -------------------------
+# API ROUTES
+# -------------------------
 
-# -------------------------------
-# 7️⃣ Register tools
-# -------------------------------
-tools = ToolRegistry()
-tools.register_local_tool(db_tool, access_groups=["admin", "user"])
-
-# -------------------------------
-# 8️⃣ Create Agent
-# -------------------------------
-agent = Agent(
-    llm_service=llm,
-    tool_registry=tools,
-    user_resolver=user_resolver,
-    agent_memory=agent_memory
-)
-
-# -------------------------------
-# 9️⃣ Flask route to ask questions
-# -------------------------------
 @app.route("/ask", methods=["POST"])
 def ask_question():
-    from asyncio import run
-
-    data = request.json
+    data = request.get_json()
     question = data.get("question")
+
     if not question:
         return jsonify({"error": "No question provided"}), 400
 
+    raw_sql = generate_query.invoke({"question": question})
+    sql_query = clean_sql_output(raw_sql)
+
     try:
-        # Use agent.chat() in a synchronous Flask context
-        response = run(agent.chat(question))
+        result = run_query.invoke(sql_query)
         return jsonify({
             "question": question,
-            "answer": response.output_text,
-            "data": getattr(response, "output_data", None)
+            "generated_sql": sql_query,
+            "result": result
+        })
+    except Exception as e:
+        return jsonify({
+            "question": question,
+            "generated_sql": sql_query,
+            "error": str(e)
+        }), 500
+
+
+@app.route("/stats")
+def stats():
+    """Return aggregated vendor stats for chart display"""
+    try:
+        sql = """
+        SELECT v.vendor_name, SUM(i.invoice_total) AS total
+        FROM invoices i
+        JOIN vendors v ON i.vendor_id = v.id
+        GROUP BY v.vendor_name
+        ORDER BY total DESC
+        LIMIT 10;
+        """
+        df = pd.read_sql_query(sql, db._engine)
+        return jsonify({
+            "labels": df["vendor_name"].tolist(),
+            "values": df["total"].tolist()
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# -------------------------------
-# 10️⃣ Run Flask
-# -------------------------------
+
+# -------------------------
+# Serve HTML (root folder)
+# -------------------------
+@app.route("/")
+def serve_root():
+    return send_from_directory(".", "index.html")
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
+    
