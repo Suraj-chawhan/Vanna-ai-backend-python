@@ -1,5 +1,6 @@
-Flask
-pandas
-python-dotenv
-vanna[google,postgres]
-psycopg2-binary
+Flask==2.3.3
+python-dotenv==1.0.0
+pandas==2.1.1
+psycopg2-binary==2.9.9
+vanna[google,postgres] @ git+https://github.com/vanna-ai/vanna.git@v2
+gunicorn==21.2.0
