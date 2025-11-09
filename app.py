@@ -1,50 +1,28 @@
-# ============================================================
-# Gemini + PostgreSQL + Flask with ENV variables
-# ============================================================
-
+# app.py
 import os
 from flask import Flask, request, jsonify
+from dotenv import load_dotenv
 from vanna.integrations.google import GeminiLlmService
 from vanna.integrations.postgres import PostgresRunner
 from vanna.tools import RunSqlTool
-from dotenv import load_dotenv
 
-# -------------------------------
-# 1️⃣ Load .env file
-# -------------------------------
-load_dotenv()  # This loads environment variables from a .env file
+# Load environment variables
+load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 POSTGRES_URL = os.getenv("POSTGRES_URL")
 
 if not GEMINI_API_KEY or not POSTGRES_URL:
-    raise ValueError("Missing GEMINI_API_KEY or POSTGRES_URL in environment variables!")
+    raise ValueError("Missing GEMINI_API_KEY or POSTGRES_URL!")
 
-# -------------------------------
-# 2️⃣ Initialize Flask
-# -------------------------------
 app = Flask(__name__)
 
-# -------------------------------
-# 3️⃣ Gemini LLM
-# -------------------------------
-llm = GeminiLlmService(
-    model="gemini-1.5-flash",
-    api_key=GEMINI_API_KEY
-)
-print("✅ Gemini LLM initialized")
+# Initialize Gemini
+llm = GeminiLlmService(model="gemini-1.5-flash", api_key=GEMINI_API_KEY)
 
-# -------------------------------
-# 4️⃣ PostgreSQL Tool
-# -------------------------------
-db_tool = RunSqlTool(
-    sql_runner=PostgresRunner(connection_string=POSTGRES_URL)
-)
-print("✅ PostgreSQL tool ready")
+# PostgreSQL tool
+db_tool = RunSqlTool(sql_runner=PostgresRunner(connection_string=POSTGRES_URL))
 
-# -------------------------------
-# 5️⃣ Flask route to ask question
-# -------------------------------
 @app.route("/ask", methods=["POST"])
 def ask_question():
     data = request.json
@@ -54,7 +32,7 @@ def ask_question():
 
     # Generate SQL from Gemini
     result = llm.generate_sql(question=question)
-    sql_query = result["sql"]  # Extract SQL text
+    sql_query = result["sql"]
 
     # Run SQL
     try:
@@ -67,9 +45,7 @@ def ask_question():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# -------------------------------
-# 6️⃣ Run Flask server
-# -------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-      
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+    
