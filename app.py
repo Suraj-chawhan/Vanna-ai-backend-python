@@ -13,7 +13,7 @@ app = Flask(__name__)
 # -------------------------
 # Database + LLM Config
 # -------------------------
-DB_URL = os.getenv("POSTGRES_URL")
+DB_URL = os.getenv("DB")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 db = SQLDatabase.from_uri(DB_URL)
