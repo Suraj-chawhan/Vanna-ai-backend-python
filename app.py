@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Full Flask backend for AI-powered analytics dashboard + chat-with-database.
+Flask backend for AI-powered analytics dashboard.
+- PostgreSQL for data
+- Groq LLM for SQL generation
 """
 
 import os
@@ -14,7 +16,9 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from flask import Flask, request, jsonify, send_from_directory
 
-# LangChain + Groq imports (optional AI SQL generator)
+# -----------------------------
+# Optional LangChain + Groq imports
+# -----------------------------
 try:
     from langchain_community.utilities import SQLDatabase
     from langchain_groq import ChatGroq
@@ -23,23 +27,23 @@ try:
 except Exception:
     SQLDatabase = ChatGroq = create_sql_query_chain = QuerySQLDataBaseTool = None
 
-# -------------------------
-# CONFIG
-# -------------------------
+# -----------------------------
+# CONFIGURATION
+# -----------------------------
 DB_URL = os.getenv("DB_URL")
 if not DB_URL:
-    raise RuntimeError("DB_URL environment variable must be set.")
+    raise RuntimeError("DB_URL environment variable must be set (e.g. postgres://...).")
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 app = Flask(__name__, static_folder=".", template_folder=".")
 
-# -------------------------
-# Database Helpers
-# -------------------------
+# -----------------------------
+# DATABASE CONNECTION
+# -----------------------------
 def get_conn():
     return psycopg2.connect(DB_URL, sslmode="require")
 
@@ -51,9 +55,9 @@ def to_json_serializable(v: Any) -> Any:
         return v.isoformat()
     return v
 
-# -------------------------
-# LangChain / Groq Setup
-# -------------------------
+# -----------------------------
+# LLM SETUP (optional)
+# -----------------------------
 use_llm = False
 sql_generator = None
 sql_runner_tool = None
@@ -65,24 +69,24 @@ if GROQ_API_KEY and SQLDatabase and ChatGroq:
         sql_generator = create_sql_query_chain(llm, sql_db)
         sql_runner_tool = QuerySQLDataBaseTool(db=sql_db)
         use_llm = True
-        logging.info("✅ LLM connected successfully (Groq + LangChain).")
-    except Exception:
-        logging.exception("Failed to initialize LLM components.")
+        logging.info("✅ LLM configured (Groq connected).")
+    except Exception as e:
+        logging.exception("Failed to initialize LLM; continuing without it.")
 else:
-    logging.warning("⚠️ LLM not configured or GROQ_API_KEY missing.")
+    logging.warning("⚠️ Groq not configured or missing packages.")
 
-# -------------------------
-# SQL safety utilities
-# -------------------------
+# -----------------------------
+# SQL SAFETY HELPERS
+# -----------------------------
 SQL_FENCE_RE = re.compile(r"```(?:sql|SQL)\s*(.*?)```", re.DOTALL)
 DANGEROUS_SQL_KEYWORDS = [
-    "insert ", "update ", "delete ", "drop ", "truncate ",
-    "alter ", "create ", "grant ", "revoke ", "replace ",
-    "backup ", "restore ", "copy ", "merge ", "execute "
+    "insert ", "update ", "delete ", "drop ", "truncate ", "alter ",
+    "create ", "grant ", "revoke ", "replace ", "backup ", "restore ",
+    "copy ", "merge ", "execute "
 ]
 
 def extract_sql(text: Optional[str]) -> str:
-    """Extract SQL from model output."""
+    """Extract SQL from LLM output safely."""
     if not text:
         return ""
     m = SQL_FENCE_RE.search(text)
@@ -91,6 +95,7 @@ def extract_sql(text: Optional[str]) -> str:
     return sql.strip("` \n\r\t")
 
 def is_select_only(sql: str) -> bool:
+    """Allow only SELECT/WITH queries (safe read-only)."""
     if not sql:
         return False
     s = sql.strip().lower()
@@ -102,7 +107,6 @@ def is_select_only(sql: str) -> bool:
     return s.startswith("select") or s.startswith("with")
 
 def run_select(sql: str) -> List[Dict[str, Any]]:
-    """Run safe SELECT queries."""
     conn = cur = None
     try:
         conn = get_conn()
@@ -114,16 +118,16 @@ def run_select(sql: str) -> List[Dict[str, Any]]:
         if cur: cur.close()
         if conn: conn.close()
 
-# -------------------------
+# -----------------------------
 # ROUTES
-# -------------------------
+# -----------------------------
 
 @app.route("/")
 def index():
-    index_path = os.path.join(os.getcwd(), "index.html")
-    if os.path.exists(index_path):
+    """Serve frontend."""
+    if os.path.exists("index.html"):
         return send_from_directory(".", "index.html")
-    return jsonify({"message": "API Running — no frontend found."})
+    return jsonify({"message": "API is running. Upload index.html for UI."})
 
 @app.route("/health")
 def health():
@@ -134,70 +138,76 @@ def health():
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
 
-# ---------- Dashboard Stats ----------
+# ---------- /stats ----------
 @app.route("/stats")
 def stats():
-    """Basic totals for dashboard."""
     try:
         conn = get_conn()
         cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Summary
         cur.execute("""
             SELECT COUNT(*) AS total_invoices,
-                   SUM(invoice_total) AS total_revenue,
-                   AVG(invoice_total) AS avg_invoice
+                   COALESCE(SUM(invoice_total), 0) AS total_revenue,
+                   COALESCE(AVG(invoice_total), 0) AS avg_invoice
             FROM invoices;
         """)
-        totals = cur.fetchone() or {}
+        summary = cur.fetchone() or {}
+
+        # Customers
         cur.execute("SELECT COUNT(*) AS total_customers FROM customers;")
         customers = cur.fetchone() or {}
+
+        # Top Vendors
         cur.execute("""
-            SELECT v.vendor_name, SUM(i.invoice_total) AS total
+            SELECT v.vendor_name, COALESCE(SUM(i.invoice_total),0) AS total
             FROM invoices i
             JOIN vendors v ON i.vendor_id = v.id
             GROUP BY v.vendor_name
             ORDER BY total DESC
             LIMIT 10;
         """)
-        top_vendors = cur.fetchall()
+        vendors = cur.fetchall()
+
         return jsonify({
             "stats_summary": {
-                "total_invoices": int(totals.get("total_invoices") or 0),
-                "total_revenue": float(totals.get("total_revenue") or 0),
-                "avg_invoice": float(totals.get("avg_invoice") or 0),
-                "total_customers": int(customers.get("total_customers") or 0)
+                "total_invoices": int(summary.get("total_invoices", 0)),
+                "total_revenue": float(summary.get("total_revenue", 0.0)),
+                "avg_invoice": float(summary.get("avg_invoice", 0.0)),
+                "total_customers": int(customers.get("total_customers", 0))
             },
             "top_vendors": [
-                {"vendor_name": r["vendor_name"], "total": float(r["total"])} for r in top_vendors
+                {"vendor_name": v["vendor_name"], "total": float(v["total"])} for v in vendors
             ]
         })
+
     except Exception as e:
         logging.exception("/stats error")
         return jsonify({"error": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
 
-# ---------- Invoice Trends ----------
+# ---------- /invoice-trends ----------
 @app.route("/invoice-trends")
 def invoice_trends():
-    """Monthly invoice totals for chart."""
     try:
         sql = """
-            SELECT DATE_TRUNC('month', invoice_date) AS month,
+            SELECT TO_CHAR(DATE_TRUNC('month', invoice_date), 'YYYY-MM') AS month,
                    SUM(invoice_total) AS total
             FROM invoices
-            GROUP BY month
-            ORDER BY month;
+            WHERE invoice_date IS NOT NULL
+            GROUP BY 1
+            ORDER BY 1;
         """
-        data = run_select(sql)
-        for r in data:
-            r["month"] = r["month"][:10]
-        return jsonify(data)
+        return jsonify(run_select(sql))
     except Exception as e:
         logging.exception("/invoice-trends error")
         return jsonify({"error": str(e)}), 500
 
-# ---------- Top Vendors ----------
+# ---------- /vendors/top10 ----------
 @app.route("/vendors/top10")
 def vendors_top10():
-    """Top 10 vendors by total invoice amount."""
     try:
         sql = """
             SELECT v.vendor_name, SUM(i.invoice_total) AS total
@@ -212,48 +222,47 @@ def vendors_top10():
         logging.exception("/vendors/top10 error")
         return jsonify({"error": str(e)}), 500
 
-# ---------- Cash Outflow ----------
+# ---------- /cash-outflow ----------
 @app.route("/cash-outflow")
 def cash_outflow():
-    """Recent payments."""
     try:
         sql = """
-            SELECT p.payment_date, v.vendor_name, p.payment_total
+            SELECT p.payment_date,
+                   v.vendor_name,
+                   p.payment_total
             FROM payments p
             JOIN vendors v ON p.vendor_id = v.id
             ORDER BY p.payment_date DESC
-            LIMIT 20;
+            LIMIT 25;
         """
         return jsonify(run_select(sql))
     except Exception as e:
         logging.exception("/cash-outflow error")
         return jsonify({"error": str(e)}), 500
 
-# ---------- AI SQL Chat ----------
+# ---------- /ask (Groq Chat-to-SQL) ----------
 @app.route("/ask", methods=["POST"])
 def ask():
     if not use_llm:
-        return jsonify({"error": "LLM not configured (set GROQ_API_KEY)."}), 400
+        return jsonify({"error": "LLM not configured. Set GROQ_API_KEY."}), 400
 
-    data = request.get_json(force=True)
-    question = data.get("question")
+    payload = request.get_json(force=True)
+    question = payload.get("question")
     if not question:
         return jsonify({"error": "No question provided."}), 400
 
     try:
         raw_output = sql_generator.invoke({"question": question})
         sql_text = extract_sql(raw_output)
-        logging.info(f"Generated SQL: {sql_text}")
+
+        logging.info(f"🧠 Generated SQL: {sql_text}")
 
         if not is_select_only(sql_text):
-            return jsonify({"error": "Unsafe SQL generated.", "generated_sql": sql_text}), 400
+            return jsonify({"error": "Unsafe or invalid SQL generated.", "generated_sql": sql_text}), 400
 
         result = sql_runner_tool.invoke(sql_text)
-        return jsonify({
-            "question": question,
-            "generated_sql": sql_text,
-            "result": result
-        })
+        return jsonify({"question": question, "generated_sql": sql_text, "result": result})
+
     except Exception as e:
         logging.exception("/ask error")
         return jsonify({"error": str(e)}), 500
@@ -267,6 +276,7 @@ def not_found(e):
 def internal_error(e):
     return jsonify({"error": "Internal server error"}), 500
 
-# ---------- Run ----------
+# ---------- MAIN ----------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
+        
