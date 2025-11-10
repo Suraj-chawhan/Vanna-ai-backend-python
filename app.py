@@ -471,8 +471,8 @@ def invoices():
 
 @app.route("/chat-with-data", methods=["POST"])
 def chat_with_data():
-    if not use_llm or sql_generator is None or sql_runner_tool is None:
-        return jsonify({"error": "LLM not configured. Set GROQ_API_KEY and install required packages."}), 400
+    if not use_llm:
+        return jsonify({"error": "LLM not configured. Set GROQ_API_KEY."}), 400
 
     payload = request.get_json(force=True)
     question = payload.get("question")
@@ -480,39 +480,25 @@ def chat_with_data():
         return jsonify({"error": "No question provided."}), 400
 
     try:
-        # raw_output may contain text with code fences. We expect the chain to return text that includes SQL.
         raw_output = sql_generator.invoke({"question": question})
-        # If the chain returns a dict with 'text' key, use it
-        if isinstance(raw_output, dict) and "text" in raw_output:
-            raw_text = raw_output["text"]
-        else:
-            raw_text = str(raw_output)
+        sql_text = extract_sql(raw_output)
 
-        sql_text = extract_sql(raw_text)
-
-        if not sql_text:
-            return jsonify({"error": "No SQL generated.", "raw_output": raw_text}), 400
+        print("🧠 Generated SQL:", sql_text)
 
         if not is_select_only(sql_text):
-            # do not run dangerous statements
-            return jsonify({"error": "Unsafe SQL detected or non-SELECT statement.", "generated_sql": sql_text}), 400
+            return jsonify({"error": "Unsafe SQL.", "generated_sql": sql_text}), 400
 
-        # Execute the SQL safely via the QuerySQLDataBaseTool if available, otherwise run_select
-        try:
-            if sql_runner_tool:
-                # QuerySQLDataBaseTool.invoke expects a question or SQL depending on implementation;
-                # to be defensive, if the tool supports direct execution we pass the SQL string.
-                result = sql_runner_tool.invoke(sql_text)
-            else:
-                result = run_select(sql_text)
-        except Exception as e:
-            logging.exception("Error executing generated SQL")
-            # Return the generated SQL to help debugging, but do not run it
-            return jsonify({"error": "Failed to execute generated SQL.", "generated_sql": sql_text, "exec_error": str(e)}), 500
+        result = sql_runner_tool.invoke(sql_text)
+        print("✅ Query Result:", result)
 
-        return jsonify({"question": question, "generated_sql": sql_text, "result": result})
+        return jsonify({
+            "question": question,
+            "generated_sql": sql_text,
+            "result": result
+        })
+
     except Exception as e:
-        logging.exception("Error in /chat-with-data")
+        print("❌ Chat-with-data error:", e)
         return jsonify({"error": str(e)}), 500
 
 
