@@ -209,32 +209,51 @@ def category_spend():
 
 @app.route("/cash-outflow")
 def cash_outflow():
+    """
+    Returns forecast of upcoming cash outflows based on due dates.
+    Buckets invoices into time ranges.
+    """
     try:
         conn = get_conn()
         cur = conn.cursor(cursor_factory=RealDictCursor)
+
         cur.execute("""
             SELECT
                 CASE
-                    WHEN COALESCE(p.due_date, i.invoice_date + interval '30 days')::date < current_date THEN 'Overdue'
-                    WHEN COALESCE(p.due_date, i.invoice_date + interval '30 days')::date BETWEEN current_date AND current_date + interval '7 days' THEN '0-7 Days'
-                    WHEN COALESCE(p.due_date, i.invoice_date + interval '30 days')::date BETWEEN current_date + interval '8 days' AND current_date + interval '30 days' THEN '8-30 Days'
-                    WHEN COALESCE(p.due_date, i.invoice_date + interval '30 days')::date BETWEEN current_date + interval '31 days' AND current_date + interval '90 days' THEN '31-90 Days'
+                    WHEN (COALESCE(
+                        NULLIF(p.due_date, ''),  -- handle empty strings
+                        (i.invoice_date + interval '30 days')::text
+                    ))::date < CURRENT_DATE THEN 'Overdue'
+                    WHEN (COALESCE(
+                        NULLIF(p.due_date, ''), (i.invoice_date + interval '30 days')::text
+                    ))::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+                        THEN '0-7 Days'
+                    WHEN (COALESCE(
+                        NULLIF(p.due_date, ''), (i.invoice_date + interval '30 days')::text
+                    ))::date BETWEEN CURRENT_DATE + INTERVAL '8 days' AND CURRENT_DATE + INTERVAL '30 days'
+                        THEN '8-30 Days'
+                    WHEN (COALESCE(
+                        NULLIF(p.due_date, ''), (i.invoice_date + interval '30 days')::text
+                    ))::date BETWEEN CURRENT_DATE + INTERVAL '31 days' AND CURRENT_DATE + INTERVAL '90 days'
+                        THEN '31-90 Days'
                     ELSE '90+ Days'
                 END AS bucket,
-                COALESCE(SUM(i.invoice_total),0) AS amount,
+                COALESCE(SUM(i.invoice_total), 0) AS amount,
                 COUNT(*) AS invoice_count
             FROM invoices i
             LEFT JOIN payments p ON p.invoice_id = i.id
             GROUP BY 1
             ORDER BY 1;
         """)
+
         rows = cur.fetchall()
         cur.close()
         conn.close()
         return jsonify({"buckets": rows})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
+        
 
 @app.route("/invoices")
 def invoices():
