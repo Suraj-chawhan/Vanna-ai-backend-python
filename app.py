@@ -225,20 +225,28 @@ def vendors_top10():
 # ---------- /cash-outflow ----------
 @app.route("/cash-outflow")
 def cash_outflow():
+    """
+    Returns recent payments with vendor breakdown.
+    Used for recent cash outflow dashboard + pie chart.
+    """
     try:
         sql = """
-            SELECT p.payment_date,
-                   v.vendor_name,
-                   p.payment_total
+            SELECT 
+                p.payment_date,
+                v.vendor_name,
+                p.payment_total
             FROM payments p
             JOIN vendors v ON p.vendor_id = v.id
             ORDER BY p.payment_date DESC
             LIMIT 25;
         """
-        return jsonify(run_select(sql))
+        rows = run_select(sql)
+        return jsonify({"rows": rows})
     except Exception as e:
         logging.exception("/cash-outflow error")
         return jsonify({"error": str(e)}), 500
+
+
 
 # ---------- /ask (Groq Chat-to-SQL) ----------
 @app.route("/ask", methods=["POST"])
