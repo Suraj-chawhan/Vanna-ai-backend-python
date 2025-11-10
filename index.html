@@ -3,82 +3,91 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>📊 DataWand Analytics</title>
+  <title>💠 DataWand — AI SQL Dashboard</title>
   <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/4149/4149670.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body class="bg-gradient-to-br from-slate-950 via-blue-950 to-blue-800 min-h-screen text-white font-sans">
 
   <!-- Navbar -->
   <nav class="backdrop-blur-md bg-white/10 border-b border-white/20 sticky top-0 z-50">
     <div class="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
       <h1 class="text-2xl font-bold">💠 DataWand</h1>
-      <a href="#chat" class="hover:text-blue-300">Chat</a>
+      <div class="space-x-4">
+        <a href="#dashboard" class="hover:text-blue-300">Dashboard</a>
+        <a href="#cash" class="hover:text-blue-300">Cash Flow</a>
+        <a href="#chat" class="hover:text-blue-300">Chat</a>
+      </div>
     </div>
   </nav>
 
   <!-- Hero -->
   <section class="text-center py-16">
-    <h2 class="text-4xl font-bold mb-3">Ask Questions. Get Insights. Instantly.</h2>
-    <p class="text-gray-300 max-w-xl mx-auto">
-      Interactive analytics dashboard powered by Flask + PostgreSQL + Groq AI.
+    <h2 class="text-4xl font-bold mb-3">Smart Insights from Your Data</h2>
+    <p class="text-gray-300 max-w-2xl mx-auto">
+      Ask questions, explore trends, and understand your finances — powered by Flask, PostgreSQL, and Groq AI.
     </p>
   </section>
 
-  <!-- Stats Cards -->
-  <section id="stats" class="max-w-5xl mx-auto px-6 mb-16">
-    <h3 class="text-2xl font-semibold mb-6 text-center">📈 Key Metrics</h3>
-    <div id="stats-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"></div>
-  </section>
-
-  <!-- Charts -->
-  <section id="charts" class="max-w-6xl mx-auto px-6 space-y-10 mb-16">
+  <!-- Dashboard Section -->
+  <section id="dashboard" class="max-w-6xl mx-auto px-6 mb-16">
     <div class="backdrop-blur-lg bg-white/10 rounded-2xl p-6 shadow-lg border border-white/20">
-      <h3 class="text-xl font-semibold mb-4 text-center">📅 Invoice Trends</h3>
-      <canvas id="invoiceTrends"></canvas>
-    </div>
+      <h3 class="text-2xl font-semibold mb-6 text-center">📊 Business Overview</h3>
 
+      <!-- Summary Cards -->
+      <div id="stats-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10"></div>
+
+      <!-- Charts -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <canvas id="invoiceChart" class="w-full h-80"></canvas>
+        <canvas id="vendorChart" class="w-full h-80"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cash Outflow Section -->
+  <section id="cash" class="max-w-6xl mx-auto px-6 mb-20">
     <div class="backdrop-blur-lg bg-white/10 rounded-2xl p-6 shadow-lg border border-white/20">
-      <h3 class="text-xl font-semibold mb-4 text-center">🏢 Top Vendors</h3>
-      <canvas id="vendorChart"></canvas>
+      <h3 class="text-2xl font-semibold mb-6 text-center">💵 Recent Cash Outflows</h3>
+
+      <div class="overflow-x-auto mb-6">
+        <table class="w-full border-collapse text-left text-gray-200">
+          <thead class="border-b border-white/30 text-gray-300">
+            <tr>
+              <th class="p-2">Payment Date</th>
+              <th class="p-2">Vendor</th>
+              <th class="p-2 text-right">Amount ($)</th>
+            </tr>
+          </thead>
+          <tbody id="cash-table"></tbody>
+        </table>
+      </div>
+
+      <div id="cash-summary" class="text-center text-lg font-semibold"></div>
+
+      <canvas id="cashChart" class="w-full h-72 mt-8"></canvas>
     </div>
   </section>
 
-  <!-- Cash Outflow -->
-  <section id="cash" class="max-w-5xl mx-auto px-6 mb-16">
-    <div class="backdrop-blur-lg bg-white/10 rounded-2xl p-6 shadow-lg border border-white/20 overflow-x-auto">
-      <h3 class="text-xl font-semibold mb-4 text-center">💵 Recent Cash Outflow</h3>
-      <table class="w-full border-collapse text-left text-gray-200">
-        <thead class="border-b border-white/30 text-gray-300">
-          <tr>
-            <th class="p-2">Date</th>
-            <th class="p-2">Vendor</th>
-            <th class="p-2 text-right">Amount ($)</th>
-          </tr>
-        </thead>
-        <tbody id="cash-table"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- Chat with AI -->
+  <!-- Chat Section -->
   <section id="chat" class="max-w-3xl mx-auto px-6 pb-24">
     <div class="backdrop-blur-lg bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6">
-      <h3 class="text-2xl font-semibold mb-4 text-center">💬 Chat with AI</h3>
+      <h3 class="text-2xl font-semibold mb-4 text-center">💬 Chat with Your Data</h3>
+
       <div id="chat-box" class="space-y-4 max-h-[400px] overflow-y-auto p-3"></div>
 
       <div class="mt-4 flex items-center gap-2">
-        <input id="question" type="text" placeholder="Ask your data something..."
+        <input id="question" type="text" placeholder="Ask a question like 'Top 5 vendors by amount'..."
           class="flex-1 bg-transparent border border-white/30 rounded-xl px-4 py-2 text-white focus:outline-none" />
         <button id="send" class="bg-blue-500 hover:bg-blue-600 rounded-xl px-4 py-2 font-semibold">Send</button>
       </div>
     </div>
   </section>
 
-  <!-- Footer -->
-  <footer class="text-center py-8 text-sm text-gray-300 border-t border-white/20">
-    © 2025 DataWand — Flask + LangChain + Groq + Chart.js
+  <footer class="text-center py-6 text-sm text-gray-400 border-t border-white/20">
+    © 2025 DataWand — Flask + PostgreSQL + LangChain + Groq
   </footer>
 
   <script>
@@ -93,18 +102,10 @@
 
         const s = data.stats_summary;
         document.getElementById("stats-cards").innerHTML = `
-          <div class="p-4 bg-blue-500/20 rounded-xl text-center">
-            <p>Total Invoices</p><p class="text-2xl font-bold">${s.total_invoices}</p>
-          </div>
-          <div class="p-4 bg-blue-500/20 rounded-xl text-center">
-            <p>Total Revenue</p><p class="text-2xl font-bold">$${s.total_revenue.toFixed(2)}</p>
-          </div>
-          <div class="p-4 bg-blue-500/20 rounded-xl text-center">
-            <p>Avg Invoice</p><p class="text-2xl font-bold">$${s.avg_invoice.toFixed(2)}</p>
-          </div>
-          <div class="p-4 bg-blue-500/20 rounded-xl text-center">
-            <p>Total Customers</p><p class="text-2xl font-bold">${s.total_customers}</p>
-          </div>
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Invoices</p><p class="text-2xl font-bold">${s.total_invoices}</p></div>
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Revenue</p><p class="text-2xl font-bold">$${s.total_revenue.toFixed(2)}</p></div>
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Avg Invoice</p><p class="text-2xl font-bold">$${s.avg_invoice.toFixed(2)}</p></div>
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Customers</p><p class="text-2xl font-bold">${s.total_customers}</p></div>
         `;
 
         renderVendorChart(data.top_vendors);
@@ -113,22 +114,22 @@
       }
     }
 
-    // ---------- Invoice Trends Chart ----------
+    // ---------- Invoice Trends ----------
     async function loadInvoiceTrends() {
       try {
         const res = await fetch(`${baseURL}/invoice-trends`);
         const data = await res.json();
-        const ctx = document.getElementById("invoiceTrends");
+        const ctx = document.getElementById("invoiceChart");
         new Chart(ctx, {
           type: "line",
           data: {
             labels: data.map(d => d.month),
             datasets: [{
-              label: "Total Invoices ($)",
+              label: "Total ($)",
               data: data.map(d => d.total),
               borderColor: "rgba(59,130,246,1)",
               backgroundColor: "rgba(59,130,246,0.3)",
-              tension: 0.4,
+              tension: 0.3,
               fill: true
             }]
           },
@@ -139,7 +140,7 @@
       }
     }
 
-    // ---------- Vendor Chart ----------
+    // ---------- Vendors Chart ----------
     function renderVendorChart(vendors) {
       const ctx = document.getElementById("vendorChart");
       new Chart(ctx, {
@@ -161,14 +162,40 @@
       try {
         const res = await fetch(`${baseURL}/cash-outflow`);
         const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        // Fill table
         const tbody = document.getElementById("cash-table");
         tbody.innerHTML = data.map(row => `
           <tr class="border-b border-white/10">
             <td class="p-2">${row.payment_date ? row.payment_date.slice(0,10) : "-"}</td>
             <td class="p-2">${row.vendor_name}</td>
-            <td class="p-2 text-right">$${row.payment_total.toFixed(2)}</td>
+            <td class="p-2 text-right">$${row.payment_total?.toFixed(2) || 0}</td>
           </tr>
         `).join("");
+
+        // Summary logic
+        const totalAmount = data.reduce((sum, r) => sum + (r.payment_total || 0), 0);
+        document.getElementById("cash-summary").innerHTML = `Total recent outflow: <span class="text-blue-400">$${totalAmount.toFixed(2)}</span>`;
+
+        // Vendor chart
+        const grouped = {};
+        data.forEach(r => {
+          if (!grouped[r.vendor_name]) grouped[r.vendor_name] = 0;
+          grouped[r.vendor_name] += r.payment_total || 0;
+        });
+        const ctx = document.getElementById("cashChart");
+        new Chart(ctx, {
+          type: "pie",
+          data: {
+            labels: Object.keys(grouped),
+            datasets: [{
+              data: Object.values(grouped),
+              backgroundColor: ["#3b82f6", "#1d4ed8", "#60a5fa", "#93c5fd", "#2563eb"]
+            }]
+          },
+          options: { plugins: { legend: { labels: { color: "#fff" } } } }
+        });
       } catch (err) {
         console.error("Cash outflow error:", err);
       }
@@ -220,5 +247,4 @@
     loadCashOutflow();
   </script>
 </body>
-  </html>
-    
+</html>
