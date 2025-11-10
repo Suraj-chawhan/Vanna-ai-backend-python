@@ -8,10 +8,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-
 <body class="bg-gradient-to-br from-slate-950 via-blue-950 to-blue-800 min-h-screen text-white font-sans">
-
-  <!-- Navbar -->
   <nav class="backdrop-blur-md bg-white/10 border-b border-white/20 sticky top-0 z-50">
     <div class="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
       <h1 class="text-2xl font-bold">💠 DataWand</h1>
@@ -23,23 +20,15 @@
     </div>
   </nav>
 
-  <!-- Hero -->
   <section class="text-center py-16">
     <h2 class="text-4xl font-bold mb-3">Smart Insights from Your Data</h2>
-    <p class="text-gray-300 max-w-2xl mx-auto">
-      Ask questions, explore trends, and understand your finances — powered by Flask, PostgreSQL, and Groq AI.
-    </p>
+    <p class="text-gray-300 max-w-2xl mx-auto">Ask questions, explore trends, and understand your finances — powered by Flask, PostgreSQL, and Groq AI.</p>
   </section>
 
-  <!-- Dashboard Section -->
   <section id="dashboard" class="max-w-6xl mx-auto px-6 mb-16">
     <div class="backdrop-blur-lg bg-white/10 rounded-2xl p-6 shadow-lg border border-white/20">
       <h3 class="text-2xl font-semibold mb-6 text-center">📊 Business Overview</h3>
-
-      <!-- Summary Cards -->
       <div id="stats-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10"></div>
-
-      <!-- Charts -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <canvas id="invoiceChart" class="w-full h-80"></canvas>
         <canvas id="vendorChart" class="w-full h-80"></canvas>
@@ -47,222 +36,175 @@
     </div>
   </section>
 
-  <!-- Cash Outflow Section -->
   <section id="cash" class="max-w-6xl mx-auto px-6 mb-20">
     <div class="backdrop-blur-lg bg-white/10 rounded-2xl p-6 shadow-lg border border-white/20">
-      <h3 class="text-2xl font-semibold mb-6 text-center">💵 Cash Outflow Forecast</h3>
-
+      <h3 class="text-2xl font-semibold mb-6 text-center">💵 Recent Cash Outflows</h3>
       <div class="overflow-x-auto mb-6">
         <table class="w-full border-collapse text-left text-gray-200">
           <thead class="border-b border-white/30 text-gray-300">
             <tr>
-              <th class="p-2">Bucket</th>
+              <th class="p-2">Payment Date</th>
+              <th class="p-2">Vendor</th>
               <th class="p-2 text-right">Amount ($)</th>
-              <th class="p-2 text-right">Invoices</th>
             </tr>
           </thead>
           <tbody id="cash-table"></tbody>
         </table>
       </div>
-
       <div id="cash-summary" class="text-center text-lg font-semibold"></div>
-
       <canvas id="cashChart" class="w-full h-72 mt-8"></canvas>
     </div>
   </section>
 
-  <!-- Chat Section -->
   <section id="chat" class="max-w-3xl mx-auto px-6 pb-24">
     <div class="backdrop-blur-lg bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6">
       <h3 class="text-2xl font-semibold mb-4 text-center">💬 Chat with Your Data</h3>
-
       <div id="chat-box" class="space-y-4 max-h-[400px] overflow-y-auto p-3"></div>
-
       <div class="mt-4 flex items-center gap-2">
-        <input id="question" type="text" placeholder="Ask: 'Top 5 vendors by spend'..."
-          class="flex-1 bg-transparent border border-white/30 rounded-xl px-4 py-2 text-white focus:outline-none" />
+        <input id="question" type="text" placeholder="Ask a question like 'Top 5 vendors by amount'..." class="flex-1 bg-transparent border border-white/30 rounded-xl px-4 py-2 text-white focus:outline-none" />
         <button id="send" class="bg-blue-500 hover:bg-blue-600 rounded-xl px-4 py-2 font-semibold">Send</button>
       </div>
     </div>
   </section>
 
-  <footer class="text-center py-6 text-sm text-gray-400 border-t border-white/20">
-    © 2025 DataWand — Flask + PostgreSQL + LangChain + Groq
-  </footer>
+  <footer class="text-center py-6 text-sm text-gray-400 border-t border-white/20">© 2025 DataWand — Flask + PostgreSQL + LangChain + Groq</footer>
 
-            <script>
-  const baseURL = window.location.origin;
-  let cashChartInstance = null;
-  let vendorChartInstance = null;
-  let invoiceChartInstance = null;
+  <script>
+    const baseURL = window.location.origin;
+    let cashChartInstance = null;
 
-  // ---------- Load Stats ----------
-  async function loadStats() {
-    try {
-      const res = await fetch(`${baseURL}/stats`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-
-      const s = data.stats_summary;
-      document.getElementById("stats-cards").innerHTML = `
-        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Invoices</p><p class="text-2xl font-bold">${s.total_invoices}</p></div>
-        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Revenue</p><p class="text-2xl font-bold">$${s.total_revenue.toFixed(2)}</p></div>
-        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Avg Invoice</p><p class="text-2xl font-bold">$${s.avg_invoice.toFixed(2)}</p></div>
-        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Customers</p><p class="text-2xl font-bold">${s.total_customers}</p></div>
-      `;
-      renderVendorChart(data.top_vendors);
-    } catch (err) {
-      console.error("Stats load error:", err);
+    async function loadStats() {
+      try {
+        const res = await fetch(`${baseURL}/stats`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        const s = data.stats_summary;
+        document.getElementById("stats-cards").innerHTML = `
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Invoices</p><p class="text-2xl font-bold">${s.total_invoices}</p></div>
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Revenue</p><p class="text-2xl font-bold">$${s.total_revenue.toFixed(2)}</p></div>
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Avg Invoice</p><p class="text-2xl font-bold">$${s.avg_invoice.toFixed(2)}</p></div>
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Customers</p><p class="text-2xl font-bold">${s.total_customers}</p></div>
+        `;
+        renderVendorChart(data.top_vendors);
+      } catch (err) {
+        console.error("Stats load error:", err);
+      }
     }
-  }
 
-  // ---------- Invoice Trends ----------
-  async function loadInvoiceTrends() {
-    try {
-      const res = await fetch(`${baseURL}/invoice-trends`);
-      const data = await res.json();
-      if (invoiceChartInstance) invoiceChartInstance.destroy();
-      const ctx = document.getElementById("invoiceChart");
-      invoiceChartInstance = new Chart(ctx, {
-        type: "line",
+    async function loadInvoiceTrends() {
+      try {
+        const res = await fetch(`${baseURL}/invoice-trends`);
+        const data = await res.json();
+        const ctx = document.getElementById("invoiceChart");
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: data.monthly.map(d => d.month),
+            datasets: [{
+              label: "Total ($)",
+              data: data.monthly.map(d => d.total_spend || d.total || 0),
+              borderColor: "rgba(59,130,246,1)",
+              backgroundColor: "rgba(59,130,246,0.3)",
+              tension: 0.3,
+              fill: true
+            }]
+          },
+          options: { scales: { x: { ticks: { color: "#fff" } }, y: { ticks: { color: "#fff" } } } }
+        });
+      } catch (err) {
+        console.error("Invoice trends error:", err);
+      }
+    }
+
+    function renderVendorChart(vendors) {
+      const ctx = document.getElementById("vendorChart");
+      new Chart(ctx, {
+        type: "bar",
         data: {
-          labels: data.monthly.map(d => d.month),
+          labels: vendors.map(v => v.vendor_name),
           datasets: [{
-            label: "Monthly Revenue ($)",
-            data: data.monthly.map(d => Number(d.total_spend || d.total || 0)),
-            borderColor: "rgba(59,130,246,1)",
-            backgroundColor: "rgba(59,130,246,0.3)",
-            tension: 0.3,
-            fill: true
+            label: "Total ($)",
+            data: vendors.map(v => v.total),
+            backgroundColor: "rgba(59,130,246,0.7)"
           }]
         },
         options: { scales: { x: { ticks: { color: "#fff" } }, y: { ticks: { color: "#fff" } } } }
       });
-    } catch (err) {
-      console.error("Invoice trends error:", err);
     }
-  }
 
-  // ---------- Vendors Chart ----------
-  function renderVendorChart(vendors) {
-    if (vendorChartInstance) vendorChartInstance.destroy();
-    const ctx = document.getElementById("vendorChart");
-    vendorChartInstance = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels: vendors.map(v => v.vendor_name),
-        datasets: [{
-          label: "Top Vendors ($)",
-          data: vendors.map(v => Number(v.total || 0)),
-          backgroundColor: "rgba(59,130,246,0.7)"
-        }]
-      },
-      options: {
-        scales: {
-          x: { ticks: { color: "#fff" } },
-          y: { ticks: { color: "#fff" } }
-        }
-      }
-    });
-  }
-
-  // ---------- Cash Outflow ----------
-  async function loadCashOutflow() {
-    try {
-      const res = await fetch(`${baseURL}/cash-outflow`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-
-      const buckets = Array.isArray(data.buckets) ? data.buckets : [];
-
-      // Render table
-      const tbody = document.getElementById("cash-table");
-      tbody.innerHTML = buckets.map(row => `
-        <tr class="border-b border-white/10">
-          <td class="p-2">${row.bucket}</td>
-          <td class="p-2 text-right">$${Number(row.amount || 0).toFixed(2)}</td>
-          <td class="p-2 text-right">${row.invoice_count || 0}</td>
-        </tr>
-      `).join("");
-
-      // Summary
-      const total = buckets.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-      document.getElementById("cash-summary").innerHTML =
-        `Total outstanding payments: <span class="text-blue-400">$${total.toFixed(2)}</span>`;
-
-      // Pie chart
-      if (cashChartInstance) cashChartInstance.destroy();
-      const ctx = document.getElementById("cashChart");
-      cashChartInstance = new Chart(ctx, {
-        type: "pie",
-        data: {
-          labels: buckets.map(b => b.bucket),
-          datasets: [{
-            data: buckets.map(b => Number(b.amount || 0)),
-            backgroundColor: ["#2563eb", "#1d4ed8", "#60a5fa", "#93c5fd", "#3b82f6"],
-            borderColor: "rgba(255,255,255,0.3)",
-            borderWidth: 1
-          }]
-        },
-        options: {
-          plugins: {
-            legend: { labels: { color: "#fff", font: { size: 14 } } },
-            title: { display: true, text: "Cash Outflow by Time Bucket", color: "#fff" }
+    async function loadCashOutflow() {
+      try {
+        const res = await fetch(`${baseURL}/cash-outflow`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        const rows = Array.isArray(data.rows) ? data.rows : [];
+        const tbody = document.getElementById("cash-table");
+        tbody.innerHTML = rows.map(r => `
+          <tr class="border-b border-white/10">
+            <td class="p-2">${r.payment_date ? r.payment_date.slice(0,10) : "-"}</td>
+            <td class="p-2">${r.vendor_name || "-"}</td>
+            <td class="p-2 text-right">$${(r.payment_total || 0).toFixed(2)}</td>
+          </tr>
+        `).join("");
+        const total = rows.reduce((sum, r) => sum + (r.payment_total || 0), 0);
+        document.getElementById("cash-summary").innerHTML = `Total recent outflow: <span class="text-blue-400">$${total.toFixed(2)}</span>`;
+        const grouped = {};
+        rows.forEach(r => {
+          const vendor = r.vendor_name || "Unknown Vendor";
+          grouped[vendor] = (grouped[vendor] || 0) + (r.payment_total || 0);
+        });
+        const ctx = document.getElementById("cashChart");
+        if (cashChartInstance) cashChartInstance.destroy();
+        cashChartInstance = new Chart(ctx, {
+          type: "pie",
+          data: {
+            labels: Object.keys(grouped),
+            datasets: [{
+              data: Object.values(grouped),
+              backgroundColor: ["#2563eb","#1d4ed8","#3b82f6","#60a5fa","#93c5fd"],
+              borderColor: "rgba(255,255,255,0.3)",
+              borderWidth: 1
+            }]
+          },
+          options: {
+            plugins: {
+              legend: { labels: { color: "#fff", font: { size: 14 } } },
+              title: { display: true, text: "Payments by Vendor (Recent)", color: "#fff", font: { size: 16, weight: "bold" } }
+            }
           }
-        }
-      });
-    } catch (err) {
-      console.error("Cash outflow error:", err);
-    }
-  }
-
-  // ---------- AI Chat ----------
-  async function sendMessage() {
-    const input = document.getElementById("question");
-    const chatBox = document.getElementById("chat-box");
-    const question = input.value.trim();
-    if (!question) return;
-
-    chatBox.innerHTML += `<div class="text-right"><p class="inline-block bg-blue-600/60 px-4 py-2 rounded-xl">${question}</p></div>`;
-    input.value = "";
-
-    try {
-      const res = await fetch(`${baseURL}/ask`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question })
-      });
-      const data = await res.json();
-
-      if (data.error) {
-        chatBox.innerHTML += `<div class="text-left text-red-400">⚠️ ${data.error}</div>`;
-      } else {
-        chatBox.innerHTML += `
-          <div class="text-left">
-            <p class="bg-white/10 inline-block px-4 py-2 rounded-xl border border-white/20">
-              <b>SQL:</b><br><code class="text-blue-300">${data.generated_sql}</code><br><br>
-              <b>Result:</b><pre class="text-gray-200 text-sm">${JSON.stringify(data.result, null, 2)}</pre>
-            </p>
-          </div>
-        `;
+        });
+      } catch (err) {
+        console.error("Cash outflow error:", err);
       }
-    } catch (err) {
-      chatBox.innerHTML += `<div class="text-left text-red-400">⚠️ ${err}</div>`;
     }
 
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
+    async function sendMessage() {
+      const input = document.getElementById("question");
+      const chatBox = document.getElementById("chat-box");
+      const question = input.value.trim();
+      if (!question) return;
+      chatBox.innerHTML += `<div class="text-right"><p class="inline-block bg-blue-600/60 px-4 py-2 rounded-xl">${question}</p></div>`;
+      input.value = "";
+      try {
+        const res = await fetch(`${baseURL}/ask`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
+        const data = await res.json();
+        if (data.error) {
+          chatBox.innerHTML += `<div class="text-left text-red-400">⚠️ ${data.error}</div>`;
+        } else {
+          chatBox.innerHTML += `<div class="text-left"><p class="bg-white/10 inline-block px-4 py-2 rounded-xl border border-white/20"><b>SQL:</b><br><code class="text-blue-300">${data.generated_sql}</code><br><br><b>Result:</b><pre class="text-gray-200 text-sm">${JSON.stringify(data.result, null, 2)}</pre></p></div>`;
+        }
+      } catch (err) {
+        chatBox.innerHTML += `<div class="text-left text-red-400">⚠️ ${err}</div>`;
+      }
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
 
-  document.getElementById("send").addEventListener("click", sendMessage);
-  document.getElementById("question").addEventListener("keypress", e => {
-    if (e.key === "Enter") sendMessage();
-  });
+    document.getElementById("send").addEventListener("click", sendMessage);
+    document.getElementById("question").addEventListener("keypress", e => { if (e.key === "Enter") sendMessage(); });
 
-  // ---------- Load All ----------
-  loadStats();
-  loadInvoiceTrends();
-  loadCashOutflow();
-          </script>
-  
+    loadStats();
+    loadInvoiceTrends();
+    loadCashOutflow();
+  </script>
 </body>
 </html>
