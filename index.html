@@ -90,166 +90,179 @@
     © 2025 DataWand — Flask + PostgreSQL + LangChain + Groq
   </footer>
 
-  <script>
-    const baseURL = window.location.origin;
+            <script>
+  const baseURL = window.location.origin;
+  let cashChartInstance = null;
+  let vendorChartInstance = null;
+  let invoiceChartInstance = null;
 
-    // ---------- Load Stats ----------
-    async function loadStats() {
-      try {
-        const res = await fetch(`${baseURL}/stats`);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
+  // ---------- Load Stats ----------
+  async function loadStats() {
+    try {
+      const res = await fetch(`${baseURL}/stats`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
 
-        const s = data.stats_summary;
-        document.getElementById("stats-cards").innerHTML = `
-          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Invoices</p><p class="text-2xl font-bold">${s.total_invoices}</p></div>
-          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Revenue</p><p class="text-2xl font-bold">$${s.total_revenue.toFixed(2)}</p></div>
-          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Avg Invoice</p><p class="text-2xl font-bold">$${s.avg_invoice.toFixed(2)}</p></div>
-          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Customers</p><p class="text-2xl font-bold">${s.total_customers}</p></div>
-        `;
-
-        renderVendorChart(data.top_vendors);
-      } catch (err) {
-        console.error("Stats load error:", err);
-      }
+      const s = data.stats_summary;
+      document.getElementById("stats-cards").innerHTML = `
+        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Invoices</p><p class="text-2xl font-bold">${s.total_invoices}</p></div>
+        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Revenue</p><p class="text-2xl font-bold">$${s.total_revenue.toFixed(2)}</p></div>
+        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Avg Invoice</p><p class="text-2xl font-bold">$${s.avg_invoice.toFixed(2)}</p></div>
+        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Customers</p><p class="text-2xl font-bold">${s.total_customers}</p></div>
+      `;
+      renderVendorChart(data.top_vendors);
+    } catch (err) {
+      console.error("Stats load error:", err);
     }
+  }
 
-    // ---------- Invoice Trends ----------
-    async function loadInvoiceTrends() {
-      try {
-        const res = await fetch(`${baseURL}/invoice-trends`);
-        const data = await res.json();
-        const ctx = document.getElementById("invoiceChart");
-        new Chart(ctx, {
-          type: "line",
-          data: {
-            labels: data.map(d => d.month),
-            datasets: [{
-              label: "Monthly Revenue ($)",
-              data: data.map(d => d.total),
-              borderColor: "rgba(59,130,246,1)",
-              backgroundColor: "rgba(59,130,246,0.3)",
-              tension: 0.3,
-              fill: true
-            }]
-          },
-          options: { scales: { x: { ticks: { color: "#fff" } }, y: { ticks: { color: "#fff" } } } }
-        });
-      } catch (err) {
-        console.error("Invoice trends error:", err);
-      }
-    }
-
-    // ---------- Vendors Chart ----------
-    function renderVendorChart(vendors) {
-      const ctx = document.getElementById("vendorChart");
-      new Chart(ctx, {
-        type: "bar",
+  // ---------- Invoice Trends ----------
+  async function loadInvoiceTrends() {
+    try {
+      const res = await fetch(`${baseURL}/invoice-trends`);
+      const data = await res.json();
+      if (invoiceChartInstance) invoiceChartInstance.destroy();
+      const ctx = document.getElementById("invoiceChart");
+      invoiceChartInstance = new Chart(ctx, {
+        type: "line",
         data: {
-          labels: vendors.map(v => v.vendor_name),
+          labels: data.monthly.map(d => d.month),
           datasets: [{
-            label: "Top Vendors ($)",
-            data: vendors.map(v => v.total),
-            backgroundColor: "rgba(59,130,246,0.7)"
+            label: "Monthly Revenue ($)",
+            data: data.monthly.map(d => Number(d.total_spend || d.total || 0)),
+            borderColor: "rgba(59,130,246,1)",
+            backgroundColor: "rgba(59,130,246,0.3)",
+            tension: 0.3,
+            fill: true
           }]
         },
         options: { scales: { x: { ticks: { color: "#fff" } }, y: { ticks: { color: "#fff" } } } }
       });
+    } catch (err) {
+      console.error("Invoice trends error:", err);
     }
+  }
 
-    // ---------- Cash Outflow ----------
-    async function loadCashOutflow() {
-      try {
-        const res = await fetch(`${baseURL}/cash-outflow`);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-
-        const buckets = data.buckets || [];
-
-        // Render table
-        const tbody = document.getElementById("cash-table");
-        tbody.innerHTML = buckets.map(row => `
-          <tr class="border-b border-white/10">
-            <td class="p-2">${row.bucket}</td>
-            <td class="p-2 text-right">$${row.amount?.toFixed(2) || 0}</td>
-            <td class="p-2 text-right">${row.invoice_count || 0}</td>
-          </tr>
-        `).join("");
-
-        // Summary
-        const total = buckets.reduce((sum, r) => sum + (r.amount || 0), 0);
-        document.getElementById("cash-summary").innerHTML =
-          `Total outstanding payments: <span class="text-blue-400">$${total.toFixed(2)}</span>`;
-
-        // Pie chart of cash outflow
-        const ctx = document.getElementById("cashChart");
-        new Chart(ctx, {
-          type: "pie",
-          data: {
-            labels: buckets.map(b => b.bucket),
-            datasets: [{
-              data: buckets.map(b => b.amount),
-              backgroundColor: ["#3b82f6", "#1d4ed8", "#60a5fa", "#93c5fd", "#2563eb"],
-              borderColor: "rgba(255,255,255,0.3)",
-              borderWidth: 1
-            }]
-          },
-          options: {
-            plugins: {
-              legend: { labels: { color: "#fff", font: { size: 14 } } },
-              title: { display: true, text: "Cash Outflow by Time Bucket", color: "#fff" }
-            }
-          }
-        });
-      } catch (err) {
-        console.error("Cash outflow error:", err);
-      }
-    }
-
-    // ---------- AI Chat ----------
-    async function sendMessage() {
-      const input = document.getElementById("question");
-      const chatBox = document.getElementById("chat-box");
-      const question = input.value.trim();
-      if (!question) return;
-
-      chatBox.innerHTML += `<div class="text-right"><p class="inline-block bg-blue-600/60 px-4 py-2 rounded-xl">${question}</p></div>`;
-      input.value = "";
-
-      try {
-        const res = await fetch(`${baseURL}/ask`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question })
-        });
-        const data = await res.json();
-
-        if (data.error) {
-          chatBox.innerHTML += `<div class="text-left text-red-400">⚠️ ${data.error}</div>`;
-        } else {
-          chatBox.innerHTML += `
-            <div class="text-left">
-              <p class="bg-white/10 inline-block px-4 py-2 rounded-xl border border-white/20">
-                <b>SQL:</b><br><code class="text-blue-300">${data.generated_sql}</code><br><br>
-                <b>Result:</b><pre class="text-gray-200 text-sm">${JSON.stringify(data.result, null, 2)}</pre>
-              </p>
-            </div>
-          `;
+  // ---------- Vendors Chart ----------
+  function renderVendorChart(vendors) {
+    if (vendorChartInstance) vendorChartInstance.destroy();
+    const ctx = document.getElementById("vendorChart");
+    vendorChartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: vendors.map(v => v.vendor_name),
+        datasets: [{
+          label: "Top Vendors ($)",
+          data: vendors.map(v => Number(v.total || 0)),
+          backgroundColor: "rgba(59,130,246,0.7)"
+        }]
+      },
+      options: {
+        scales: {
+          x: { ticks: { color: "#fff" } },
+          y: { ticks: { color: "#fff" } }
         }
-      } catch (err) {
-        chatBox.innerHTML += `<div class="text-left text-red-400">⚠️ ${err}</div>`;
       }
+    });
+  }
 
-      chatBox.scrollTop = chatBox.scrollHeight;
+  // ---------- Cash Outflow ----------
+  async function loadCashOutflow() {
+    try {
+      const res = await fetch(`${baseURL}/cash-outflow`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const buckets = Array.isArray(data.buckets) ? data.buckets : [];
+
+      // Render table
+      const tbody = document.getElementById("cash-table");
+      tbody.innerHTML = buckets.map(row => `
+        <tr class="border-b border-white/10">
+          <td class="p-2">${row.bucket}</td>
+          <td class="p-2 text-right">$${Number(row.amount || 0).toFixed(2)}</td>
+          <td class="p-2 text-right">${row.invoice_count || 0}</td>
+        </tr>
+      `).join("");
+
+      // Summary
+      const total = buckets.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      document.getElementById("cash-summary").innerHTML =
+        `Total outstanding payments: <span class="text-blue-400">$${total.toFixed(2)}</span>`;
+
+      // Pie chart
+      if (cashChartInstance) cashChartInstance.destroy();
+      const ctx = document.getElementById("cashChart");
+      cashChartInstance = new Chart(ctx, {
+        type: "pie",
+        data: {
+          labels: buckets.map(b => b.bucket),
+          datasets: [{
+            data: buckets.map(b => Number(b.amount || 0)),
+            backgroundColor: ["#2563eb", "#1d4ed8", "#60a5fa", "#93c5fd", "#3b82f6"],
+            borderColor: "rgba(255,255,255,0.3)",
+            borderWidth: 1
+          }]
+        },
+        options: {
+          plugins: {
+            legend: { labels: { color: "#fff", font: { size: 14 } } },
+            title: { display: true, text: "Cash Outflow by Time Bucket", color: "#fff" }
+          }
+        }
+      });
+    } catch (err) {
+      console.error("Cash outflow error:", err);
+    }
+  }
+
+  // ---------- AI Chat ----------
+  async function sendMessage() {
+    const input = document.getElementById("question");
+    const chatBox = document.getElementById("chat-box");
+    const question = input.value.trim();
+    if (!question) return;
+
+    chatBox.innerHTML += `<div class="text-right"><p class="inline-block bg-blue-600/60 px-4 py-2 rounded-xl">${question}</p></div>`;
+    input.value = "";
+
+    try {
+      const res = await fetch(`${baseURL}/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question })
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        chatBox.innerHTML += `<div class="text-left text-red-400">⚠️ ${data.error}</div>`;
+      } else {
+        chatBox.innerHTML += `
+          <div class="text-left">
+            <p class="bg-white/10 inline-block px-4 py-2 rounded-xl border border-white/20">
+              <b>SQL:</b><br><code class="text-blue-300">${data.generated_sql}</code><br><br>
+              <b>Result:</b><pre class="text-gray-200 text-sm">${JSON.stringify(data.result, null, 2)}</pre>
+            </p>
+          </div>
+        `;
+      }
+    } catch (err) {
+      chatBox.innerHTML += `<div class="text-left text-red-400">⚠️ ${err}</div>`;
     }
 
-    document.getElementById("send").addEventListener("click", sendMessage);
-    document.getElementById("question").addEventListener("keypress", e => { if (e.key === "Enter") sendMessage(); });
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
 
-    // ---------- Load All ----------
-    loadStats();
-    loadInvoiceTrends();
-    loadCashOutflow();
-  </script>
+  document.getElementById("send").addEventListener("click", sendMessage);
+  document.getElementById("question").addEventListener("keypress", e => {
+    if (e.key === "Enter") sendMessage();
+  });
+
+  // ---------- Load All ----------
+  loadStats();
+  loadInvoiceTrends();
+  loadCashOutflow();
+          </script>
+  
 </body>
 </html>
