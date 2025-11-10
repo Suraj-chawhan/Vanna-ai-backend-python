@@ -217,24 +217,27 @@ def cash_outflow():
         conn = get_conn()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        cur.execute("""
+        query = """
             SELECT
                 CASE
-                    WHEN (COALESCE(
-                        NULLIF(p.due_date, ''),  -- handle empty strings
-                        (i.invoice_date + interval '30 days')::text
-                    ))::date < CURRENT_DATE THEN 'Overdue'
-                    WHEN (COALESCE(
-                        NULLIF(p.due_date, ''), (i.invoice_date + interval '30 days')::text
-                    ))::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+                    WHEN COALESCE(
+                        NULLIF(p.due_date, ''), 
+                        (i.invoice_date + INTERVAL '30 days')::text
+                    )::date < CURRENT_DATE THEN 'Overdue'
+                    WHEN COALESCE(
+                        NULLIF(p.due_date, ''), 
+                        (i.invoice_date + INTERVAL '30 days')::text
+                    )::date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '7 days')
                         THEN '0-7 Days'
-                    WHEN (COALESCE(
-                        NULLIF(p.due_date, ''), (i.invoice_date + interval '30 days')::text
-                    ))::date BETWEEN CURRENT_DATE + INTERVAL '8 days' AND CURRENT_DATE + INTERVAL '30 days'
+                    WHEN COALESCE(
+                        NULLIF(p.due_date, ''), 
+                        (i.invoice_date + INTERVAL '30 days')::text
+                    )::date BETWEEN (CURRENT_DATE + INTERVAL '8 days') AND (CURRENT_DATE + INTERVAL '30 days')
                         THEN '8-30 Days'
-                    WHEN (COALESCE(
-                        NULLIF(p.due_date, ''), (i.invoice_date + interval '30 days')::text
-                    ))::date BETWEEN CURRENT_DATE + INTERVAL '31 days' AND CURRENT_DATE + INTERVAL '90 days'
+                    WHEN COALESCE(
+                        NULLIF(p.due_date, ''), 
+                        (i.invoice_date + INTERVAL '30 days')::text
+                    )::date BETWEEN (CURRENT_DATE + INTERVAL '31 days') AND (CURRENT_DATE + INTERVAL '90 days')
                         THEN '31-90 Days'
                     ELSE '90+ Days'
                 END AS bucket,
@@ -244,8 +247,9 @@ def cash_outflow():
             LEFT JOIN payments p ON p.invoice_id = i.id
             GROUP BY 1
             ORDER BY 1;
-        """)
+        """
 
+        cur.execute(query)
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -253,7 +257,6 @@ def cash_outflow():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-        
 
 @app.route("/invoices")
 def invoices():
