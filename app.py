@@ -153,6 +153,7 @@ def invoice_trends():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/vendors/top10")
 def vendors_top10():
     try:
@@ -183,6 +184,8 @@ def cash_outflow():
     except Exception as e:
         logging.exception("/cash-outflow error")
         return jsonify({"error": str(e)}), 500
+
+
 
 @app.route("/ask", methods=["POST"])
 def ask():
