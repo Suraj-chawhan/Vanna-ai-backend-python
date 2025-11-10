@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>💠 DataWand — SQL Dashboard</title>
+  <title>💠 DataWand — AI SQL Dashboard</title>
   <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/4149/4149670.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body class="bg-gradient-to-br from-slate-950 via-blue-950 to-blue-800 min-h-screen text-white font-sans">
+
   <nav class="backdrop-blur-md bg-white/10 border-b border-white/20 sticky top-0 z-50">
     <div class="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
       <h1 class="text-2xl font-bold">💠 DataWand</h1>
@@ -21,13 +23,17 @@
 
   <section class="text-center py-16">
     <h2 class="text-4xl font-bold mb-3">Smart Insights from Your Data</h2>
-    <p class="text-gray-300 max-w-2xl mx-auto">Interactive dashboard powered by Flask and PostgreSQL.</p>
+    <p class="text-gray-300 max-w-2xl mx-auto">
+      Explore business performance, track invoices, and visualize payments — powered by Flask + PostgreSQL.
+    </p>
   </section>
 
   <section id="dashboard" class="max-w-6xl mx-auto px-6 mb-16">
     <div class="backdrop-blur-lg bg-white/10 rounded-2xl p-6 shadow-lg border border-white/20">
       <h3 class="text-2xl font-semibold mb-6 text-center">📊 Business Overview</h3>
+
       <div id="stats-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10"></div>
+
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <canvas id="invoiceChart" class="w-full h-80"></canvas>
         <canvas id="vendorChart" class="w-full h-80"></canvas>
@@ -38,6 +44,7 @@
   <section id="cash" class="max-w-6xl mx-auto px-6 mb-20">
     <div class="backdrop-blur-lg bg-white/10 rounded-2xl p-6 shadow-lg border border-white/20">
       <h3 class="text-2xl font-semibold mb-6 text-center">💵 Recent Cash Outflows</h3>
+
       <div class="overflow-x-auto mb-6">
         <table class="w-full border-collapse text-left text-gray-200">
           <thead class="border-b border-white/30 text-gray-300">
@@ -50,52 +57,63 @@
           <tbody id="cash-table"></tbody>
         </table>
       </div>
+
       <div id="cash-summary" class="text-center text-lg font-semibold"></div>
+
       <canvas id="cashChart" class="w-full h-72 mt-8"></canvas>
     </div>
   </section>
 
   <footer class="text-center py-6 text-sm text-gray-400 border-t border-white/20">
-    © 2025 DataWand — Flask + PostgreSQL
+    © 2025 DataWand — Flask + PostgreSQL Dashboard
   </footer>
 
   <script>
     const baseURL = window.location.origin;
-    let cashChartInstance = null;
 
     async function loadStats() {
-      const res = await fetch(`${baseURL}/stats`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      const s = data.stats_summary;
-      document.getElementById("stats-cards").innerHTML = `
-        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Invoices</p><p class="text-2xl font-bold">${s.total_invoices}</p></div>
-        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Revenue</p><p class="text-2xl font-bold">$${s.total_revenue.toFixed(2)}</p></div>
-        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Avg Invoice</p><p class="text-2xl font-bold">$${s.avg_invoice.toFixed(2)}</p></div>
-        <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Customers</p><p class="text-2xl font-bold">${s.total_customers}</p></div>
-      `;
-      renderVendorChart(data.top_vendors);
+      try {
+        const res = await fetch(`${baseURL}/stats`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        const s = data.stats_summary;
+        document.getElementById("stats-cards").innerHTML = `
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Invoices</p><p class="text-2xl font-bold">${s.total_invoices}</p></div>
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Revenue</p><p class="text-2xl font-bold">$${s.total_revenue.toFixed(2)}</p></div>
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Avg Invoice</p><p class="text-2xl font-bold">$${s.avg_invoice.toFixed(2)}</p></div>
+          <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p>Customers</p><p class="text-2xl font-bold">${s.total_customers}</p></div>
+        `;
+
+        renderVendorChart(data.top_vendors);
+      } catch (err) {
+        console.error("Stats load error:", err);
+      }
     }
 
     async function loadInvoiceTrends() {
-      const res = await fetch(`${baseURL}/invoice-trends`);
-      const data = await res.json();
-      const ctx = document.getElementById("invoiceChart");
-      new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: data.monthly.map(d => d.month),
-          datasets: [{
-            label: "Total ($)",
-            data: data.monthly.map(d => d.total),
-            borderColor: "rgba(59,130,246,1)",
-            backgroundColor: "rgba(59,130,246,0.3)",
-            tension: 0.3,
-            fill: true
-          }]
-        },
-        options: { scales: { x: { ticks: { color: "#fff" } }, y: { ticks: { color: "#fff" } } } }
-      });
+      try {
+        const res = await fetch(`${baseURL}/invoice-trends`);
+        const data = await res.json();
+        const ctx = document.getElementById("invoiceChart");
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: data.map(d => d.month),
+            datasets: [{
+              label: "Total ($)",
+              data: data.map(d => d.total),
+              borderColor: "rgba(59,130,246,1)",
+              backgroundColor: "rgba(59,130,246,0.3)",
+              tension: 0.3,
+              fill: true
+            }]
+          },
+          options: { scales: { x: { ticks: { color: "#fff" } }, y: { ticks: { color: "#fff" } } } }
+        });
+      } catch (err) {
+        console.error("Invoice trends error:", err);
+      }
     }
 
     function renderVendorChart(vendors) {
@@ -115,40 +133,48 @@
     }
 
     async function loadCashOutflow() {
-      const res = await fetch(`${baseURL}/cash-outflow`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      const rows = Array.isArray(data.rows) ? data.rows : [];
-      const tbody = document.getElementById("cash-table");
-      tbody.innerHTML = rows.map(r => `
-        <tr class="border-b border-white/10">
-          <td class="p-2">${r.payment_date ? r.payment_date.slice(0,10) : "-"}</td>
-          <td class="p-2">${r.vendor_name || "-"}</td>
-          <td class="p-2 text-right">$${(r.payment_total || 0).toFixed(2)}</td>
-        </tr>
-      `).join("");
-      const total = rows.reduce((sum, r) => sum + (r.payment_total || 0), 0);
-      document.getElementById("cash-summary").innerHTML = `Total recent outflow: <span class="text-blue-400">$${total.toFixed(2)}</span>`;
-      const grouped = {};
-      rows.forEach(r => {
-        const vendor = r.vendor_name || "Unknown Vendor";
-        grouped[vendor] = (grouped[vendor] || 0) + (r.payment_total || 0);
-      });
-      const ctx = document.getElementById("cashChart");
-      if (cashChartInstance) cashChartInstance.destroy();
-      cashChartInstance = new Chart(ctx, {
-        type: "pie",
-        data: {
-          labels: Object.keys(grouped),
-          datasets: [{
-            data: Object.values(grouped),
-            backgroundColor: ["#2563eb","#1d4ed8","#3b82f6","#60a5fa","#93c5fd"],
-            borderColor: "rgba(255,255,255,0.3)",
-            borderWidth: 1
-          }]
-        },
-        options: { plugins: { legend: { labels: { color: "#fff" } } } }
-      });
+      try {
+        const res = await fetch(`${baseURL}/cash-outflow`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        const tbody = document.getElementById("cash-table");
+        tbody.innerHTML = data.map(row => `
+          <tr class="border-b border-white/10">
+            <td class="p-2">${row.payment_date ? row.payment_date.slice(0,10) : "-"}</td>
+            <td class="p-2">${row.vendor_name}</td>
+            <td class="p-2 text-right">$${row.payment_total?.toFixed(2) || 0}</td>
+          </tr>
+        `).join("");
+
+        const totalAmount = data.reduce((sum, r) => sum + (r.payment_total || 0), 0);
+        document.getElementById("cash-summary").innerHTML = `Total recent outflow: <span class="text-blue-400">$${totalAmount.toFixed(2)}</span>`;
+
+        const grouped = {};
+        data.forEach(r => {
+          if (!grouped[r.vendor_name]) grouped[r.vendor_name] = 0;
+          grouped[r.vendor_name] += r.payment_total || 0;
+        });
+
+        const ctx = document.getElementById("cashChart");
+        new Chart(ctx, {
+          type: "pie",
+          data: {
+            labels: Object.keys(grouped),
+            datasets: [{
+              data: Object.values(grouped),
+              backgroundColor: [
+                "#3b82f6", "#1d4ed8", "#60a5fa",
+                "#93c5fd", "#2563eb", "#38bdf8",
+                "#0ea5e9", "#1e40af", "#1d9bf0"
+              ]
+            }]
+          },
+          options: { plugins: { legend: { labels: { color: "#fff" } } } }
+        });
+      } catch (err) {
+        console.error("Cash outflow error:", err);
+      }
     }
 
     loadStats();
