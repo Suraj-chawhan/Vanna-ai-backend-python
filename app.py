@@ -37,7 +37,7 @@ except Exception:
 # -------------------------
 # CONFIG
 # -------------------------
-DB_URL = os.getenv("DB")
+DB_URL = os.getenv("DB_URL")
 if not DB_URL:
     raise RuntimeError("DB environment variable must be set to your Postgres URL.")
 
