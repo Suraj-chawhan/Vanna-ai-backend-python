@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DataWand — AI SQL Analytics</title>
+  <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/4149/4149670.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/4149/4149670.png" />
 </head>
 
-<body class="bg-gradient-to-br from-blue-950 via-blue-900 to-blue-700 min-h-screen text-white">
+<body class="bg-gradient-to-br from-blue-950 via-blue-900 to-blue-700 min-h-screen text-white font-inter">
   <!-- Navbar -->
   <nav class="backdrop-blur-lg bg-white/10 border-b border-white/20 sticky top-0 z-50">
     <div class="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
@@ -26,18 +26,25 @@
     </p>
   </section>
 
-  <!-- Stats Dashboard -->
+  <!-- Dashboard -->
   <section id="dashboard" class="max-w-5xl mx-auto px-6 mb-20">
     <div class="backdrop-blur-lg bg-white/10 rounded-2xl p-6 shadow-lg border border-white/20">
       <h3 class="text-2xl font-semibold mb-6 text-center">📈 Dashboard Overview</h3>
 
-      <div id="stats-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10"></div>
+      <!-- Summary cards -->
+      <div id="stats-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <div class="animate-pulse bg-blue-500/10 rounded-xl h-24"></div>
+        <div class="animate-pulse bg-blue-500/10 rounded-xl h-24"></div>
+        <div class="animate-pulse bg-blue-500/10 rounded-xl h-24"></div>
+        <div class="animate-pulse bg-blue-500/10 rounded-xl h-24"></div>
+      </div>
 
+      <!-- Chart -->
       <canvas id="vendorChart" class="w-full h-80"></canvas>
     </div>
   </section>
 
-  <!-- Chat UI -->
+  <!-- Chat -->
   <section id="chat" class="max-w-3xl mx-auto px-6 pb-24">
     <div class="backdrop-blur-lg bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6">
       <h3 class="text-2xl font-semibold mb-4 text-center">💬 Chat with SQL AI</h3>
@@ -60,25 +67,24 @@
   <script>
     const baseURL = window.location.origin;
 
-    // Fetch Stats for Dashboard
+    // --- Load Stats ---
     async function loadStats() {
       try {
         const res = await fetch(`${baseURL}/stats`);
         const data = await res.json();
 
         if (data.error) throw new Error(data.error);
-
-        // --- Summary Cards ---
         const s = data.stats_summary;
-        const cardsHTML = `
+
+        // Summary Cards
+        document.getElementById("stats-cards").innerHTML = `
           <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p class="text-sm">Invoices</p><p class="text-2xl font-bold">${s.total_invoices}</p></div>
           <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p class="text-sm">Revenue</p><p class="text-2xl font-bold">$${s.total_revenue.toFixed(2)}</p></div>
           <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p class="text-sm">Avg Invoice</p><p class="text-2xl font-bold">$${s.avg_invoice.toFixed(2)}</p></div>
           <div class="p-4 bg-blue-500/20 rounded-xl text-center"><p class="text-sm">Customers</p><p class="text-2xl font-bold">${s.total_customers}</p></div>
         `;
-        document.getElementById("stats-cards").innerHTML = cardsHTML;
 
-        // --- Vendor Chart ---
+        // Vendor Chart
         const ctx = document.getElementById("vendorChart");
         new Chart(ctx, {
           type: "bar",
@@ -87,8 +93,8 @@
             datasets: [{
               label: "Top Vendors (by Total Invoice)",
               data: data.top_vendors.map(v => v.total),
-              backgroundColor: "rgba(59,130,246,0.6)",
-              borderColor: "rgba(255,255,255,0.3)",
+              backgroundColor: "rgba(59,130,246,0.7)",
+              borderColor: "rgba(255,255,255,0.4)",
               borderWidth: 1,
               borderRadius: 6
             }]
@@ -98,9 +104,7 @@
               y: { beginAtZero: true, ticks: { color: "#fff" } },
               x: { ticks: { color: "#fff" } }
             },
-            plugins: {
-              legend: { labels: { color: "#fff" } }
-            }
+            plugins: { legend: { labels: { color: "#fff" } } }
           }
         });
       } catch (err) {
@@ -108,14 +112,16 @@
       }
     }
 
-    // Chat logic
-    document.getElementById("send").addEventListener("click", async () => {
+    // --- Chat Functionality ---
+    async function sendMessage() {
       const input = document.getElementById("question");
       const chatBox = document.getElementById("chat-box");
       const question = input.value.trim();
       if (!question) return;
 
-      chatBox.innerHTML += `<div class="text-right"><p class="inline-block bg-blue-600/60 px-4 py-2 rounded-xl">${question}</p></div>`;
+      chatBox.innerHTML += `
+        <div class="text-right"><p class="inline-block bg-blue-600/60 px-4 py-2 rounded-xl">${question}</p></div>
+      `;
       input.value = "";
 
       try {
@@ -127,21 +133,32 @@
         const data = await res.json();
 
         if (data.error) {
-          chatBox.innerHTML += `<div class="text-left text-red-400"><p class="bg-white/10 inline-block px-4 py-2 rounded-xl border border-red-400/30">⚠️ ${data.error}</p></div>`;
+          chatBox.innerHTML += `
+            <div class="text-left text-red-400">
+              <p class="bg-white/10 inline-block px-4 py-2 rounded-xl border border-red-400/30">
+                ⚠️ ${data.error}
+              </p>
+            </div>`;
         } else {
           chatBox.innerHTML += `
             <div class="text-left">
               <p class="bg-white/10 inline-block px-4 py-2 rounded-xl border border-white/20">
                 <b>SQL:</b><br><code class="text-blue-300">${data.generated_sql}</code><br><br>
-                <b>Result:</b> ${JSON.stringify(data.result, null, 2)}
+                <b>Result:</b><pre class="text-gray-200 text-sm">${JSON.stringify(data.result, null, 2)}</pre>
               </p>
             </div>
           `;
         }
-        chatBox.scrollTop = chatBox.scrollHeight;
       } catch (err) {
         chatBox.innerHTML += `<div class="text-left text-red-400">⚠️ ${err}</div>`;
       }
+
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    document.getElementById("send").addEventListener("click", sendMessage);
+    document.getElementById("question").addEventListener("keypress", e => {
+      if (e.key === "Enter") sendMessage();
     });
 
     // Auto-load stats
