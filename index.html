@@ -50,15 +50,15 @@
   <!-- Cash Outflow Section -->
   <section id="cash" class="max-w-6xl mx-auto px-6 mb-20">
     <div class="backdrop-blur-lg bg-white/10 rounded-2xl p-6 shadow-lg border border-white/20">
-      <h3 class="text-2xl font-semibold mb-6 text-center">💵 Recent Cash Outflows</h3>
+      <h3 class="text-2xl font-semibold mb-6 text-center">💵 Cash Outflow Forecast</h3>
 
       <div class="overflow-x-auto mb-6">
         <table class="w-full border-collapse text-left text-gray-200">
           <thead class="border-b border-white/30 text-gray-300">
             <tr>
-              <th class="p-2">Payment Date</th>
-              <th class="p-2">Vendor</th>
+              <th class="p-2">Bucket</th>
               <th class="p-2 text-right">Amount ($)</th>
+              <th class="p-2 text-right">Invoices</th>
             </tr>
           </thead>
           <tbody id="cash-table"></tbody>
@@ -79,7 +79,7 @@
       <div id="chat-box" class="space-y-4 max-h-[400px] overflow-y-auto p-3"></div>
 
       <div class="mt-4 flex items-center gap-2">
-        <input id="question" type="text" placeholder="Ask a question like 'Top 5 vendors by amount'..."
+        <input id="question" type="text" placeholder="Ask: 'Top 5 vendors by spend'..."
           class="flex-1 bg-transparent border border-white/30 rounded-xl px-4 py-2 text-white focus:outline-none" />
         <button id="send" class="bg-blue-500 hover:bg-blue-600 rounded-xl px-4 py-2 font-semibold">Send</button>
       </div>
@@ -125,7 +125,7 @@
           data: {
             labels: data.map(d => d.month),
             datasets: [{
-              label: "Total ($)",
+              label: "Monthly Revenue ($)",
               data: data.map(d => d.total),
               borderColor: "rgba(59,130,246,1)",
               backgroundColor: "rgba(59,130,246,0.3)",
@@ -148,7 +148,7 @@
         data: {
           labels: vendors.map(v => v.vendor_name),
           datasets: [{
-            label: "Total ($)",
+            label: "Top Vendors ($)",
             data: vendors.map(v => v.total),
             backgroundColor: "rgba(59,130,246,0.7)"
           }]
@@ -164,37 +164,42 @@
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
-        // Fill table
+        const buckets = data.buckets || [];
+
+        // Render table
         const tbody = document.getElementById("cash-table");
-        tbody.innerHTML = data.map(row => `
+        tbody.innerHTML = buckets.map(row => `
           <tr class="border-b border-white/10">
-            <td class="p-2">${row.payment_date ? row.payment_date.slice(0,10) : "-"}</td>
-            <td class="p-2">${row.vendor_name}</td>
-            <td class="p-2 text-right">$${row.payment_total?.toFixed(2) || 0}</td>
+            <td class="p-2">${row.bucket}</td>
+            <td class="p-2 text-right">$${row.amount?.toFixed(2) || 0}</td>
+            <td class="p-2 text-right">${row.invoice_count || 0}</td>
           </tr>
         `).join("");
 
-        // Summary logic
-        const totalAmount = data.reduce((sum, r) => sum + (r.payment_total || 0), 0);
-        document.getElementById("cash-summary").innerHTML = `Total recent outflow: <span class="text-blue-400">$${totalAmount.toFixed(2)}</span>`;
+        // Summary
+        const total = buckets.reduce((sum, r) => sum + (r.amount || 0), 0);
+        document.getElementById("cash-summary").innerHTML =
+          `Total outstanding payments: <span class="text-blue-400">$${total.toFixed(2)}</span>`;
 
-        // Vendor chart
-        const grouped = {};
-        data.forEach(r => {
-          if (!grouped[r.vendor_name]) grouped[r.vendor_name] = 0;
-          grouped[r.vendor_name] += r.payment_total || 0;
-        });
+        // Pie chart of cash outflow
         const ctx = document.getElementById("cashChart");
         new Chart(ctx, {
           type: "pie",
           data: {
-            labels: Object.keys(grouped),
+            labels: buckets.map(b => b.bucket),
             datasets: [{
-              data: Object.values(grouped),
-              backgroundColor: ["#3b82f6", "#1d4ed8", "#60a5fa", "#93c5fd", "#2563eb"]
+              data: buckets.map(b => b.amount),
+              backgroundColor: ["#3b82f6", "#1d4ed8", "#60a5fa", "#93c5fd", "#2563eb"],
+              borderColor: "rgba(255,255,255,0.3)",
+              borderWidth: 1
             }]
           },
-          options: { plugins: { legend: { labels: { color: "#fff" } } } }
+          options: {
+            plugins: {
+              legend: { labels: { color: "#fff", font: { size: 14 } } },
+              title: { display: true, text: "Cash Outflow by Time Bucket", color: "#fff" }
+            }
+          }
         });
       } catch (err) {
         console.error("Cash outflow error:", err);
