@@ -1,20 +1,29 @@
 #!/usr/bin/env python3
 import os
+import re
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 
+# -----------------------------
+# CONFIG
+# -----------------------------
 DB_URL = os.getenv("DB_URL")
 if not DB_URL:
-    raise RuntimeError("DB_URL must be set (postgres://...)")
+    raise RuntimeError("DB_URL environment variable must be set (e.g. postgres://user:pass@host:port/dbname)")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
 app = Flask(__name__, static_folder=".", template_folder=".")
 
+# -----------------------------
+# DB CONNECTION HELPERS
+# -----------------------------
 def get_conn():
     return psycopg2.connect(DB_URL, sslmode="require")
 
@@ -35,14 +44,19 @@ def run_select(sql: str) -> List[Dict[str, Any]]:
         rows = cur.fetchall()
         return [{k: to_json_serializable(v) for k, v in row.items()} for row in rows]
     finally:
-        if cur: cur.close()
-        if conn: conn.close()
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
+# -----------------------------
+# ROUTES
+# -----------------------------
 @app.route("/")
 def index():
     if os.path.exists("index.html"):
         return send_from_directory(".", "index.html")
-    return jsonify({"message": "API is running. Upload index.html for UI."})
+    return jsonify({"message": "API running. Place index.html in root."})
 
 @app.route("/health")
 def health():
@@ -53,11 +67,13 @@ def health():
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
 
+# ---------- /stats ----------
 @app.route("/stats")
 def stats():
     try:
         conn = get_conn()
         cur = conn.cursor(cursor_factory=RealDictCursor)
+
         cur.execute("""
             SELECT COUNT(*) AS total_invoices,
                    COALESCE(SUM(invoice_total), 0) AS total_revenue,
@@ -90,6 +106,7 @@ def stats():
                 {"vendor_name": v["vendor_name"], "total": float(v["total"])} for v in vendors
             ]
         })
+
     except Exception as e:
         logging.exception("/stats error")
         return jsonify({"error": str(e)}), 500
@@ -97,6 +114,7 @@ def stats():
         if cur: cur.close()
         if conn: conn.close()
 
+# ---------- /invoice-trends ----------
 @app.route("/invoice-trends")
 def invoice_trends():
     try:
@@ -108,11 +126,12 @@ def invoice_trends():
             GROUP BY 1
             ORDER BY 1;
         """
-        return jsonify({"monthly": run_select(sql)})
+        return jsonify(run_select(sql))
     except Exception as e:
         logging.exception("/invoice-trends error")
         return jsonify({"error": str(e)}), 500
 
+# ---------- /vendors/top10 ----------
 @app.route("/vendors/top10")
 def vendors_top10():
     try:
@@ -129,22 +148,28 @@ def vendors_top10():
         logging.exception("/vendors/top10 error")
         return jsonify({"error": str(e)}), 500
 
+# ---------- /cash-outflow ----------
 @app.route("/cash-outflow")
 def cash_outflow():
     try:
         sql = """
-            SELECT p.payment_date, v.vendor_name, p.payment_total
+            SELECT p.payment_date,
+                   v.vendor_name,
+                   p.payment_total
             FROM payments p
             JOIN vendors v ON p.vendor_id = v.id
+            WHERE p.payment_total IS NOT NULL
             ORDER BY p.payment_date DESC
             LIMIT 25;
         """
-        rows = run_select(sql)
-        return jsonify({"rows": rows})
+        return jsonify(run_select(sql))
     except Exception as e:
         logging.exception("/cash-outflow error")
         return jsonify({"error": str(e)}), 500
 
+# -----------------------------
+# ERROR HANDLERS
+# -----------------------------
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({"error": "Endpoint not found"}), 404
@@ -153,6 +178,9 @@ def not_found(e):
 def internal_error(e):
     return jsonify({"error": "Internal server error"}), 500
 
+# -----------------------------
+# MAIN ENTRY
+# -----------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
-        
+                  
