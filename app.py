@@ -37,9 +37,9 @@ except Exception:
 # -------------------------
 # CONFIG
 # -------------------------
-DB_URL = os.getenv("DB_URL")
+DB_URL = os.getenv("DB")
 if not DB_URL:
-    raise RuntimeError("DB_URL environment variable must be set to your Postgres URL.")
+    raise RuntimeError("DB environment variable must be set to your Postgres URL.")
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", None)
 LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-20b")
